@@ -4,11 +4,15 @@ import path from "node:path"
 
 import { registerIpcMain } from "@egoist/tipc/main"
 import { electronApp, optimizer } from "@electron-toolkit/utils"
-import { app, BrowserWindow, Menu } from "electron"
+import { extractElectronWindowOptions } from "@shared/electron"
+import { app, BrowserWindow, session } from "electron"
 
+import { registerAppMenu } from "./menu"
 import { router } from "./tipc"
-import { createWindow } from "./window"
+import { createMainWindow, createWindow } from "./window"
 
+let mainWindow: BrowserWindow
+export const getMainWindow = () => mainWindow
 registerIpcMain(router)
 
 if (process.defaultApp) {
@@ -21,7 +25,9 @@ if (process.defaultApp) {
   app.setAsDefaultProtocolClient("follow")
 }
 
-app.dock.setIcon(path.join(__dirname, "../../resources/icon.png"))
+if (app.dock) {
+  app.dock.setIcon(path.join(__dirname, "../../resources/icon.png"))
+}
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
@@ -37,14 +43,13 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  let mainWindow: BrowserWindow
-  mainWindow = createWindow()
+  mainWindow = createMainWindow()
 
   app.on("activate", () => {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
-      mainWindow = createWindow()
+      mainWindow = createMainWindow()
     }
   })
 
@@ -64,6 +69,16 @@ app.whenReady().then(() => {
         })
         mainWindow.reload()
       }
+    } else {
+      const options = extractElectronWindowOptions(url)
+
+      const { height, resizable, width } = options || {}
+      createWindow({
+        extraPath: url.replace("follow:/", ""),
+        width: width ?? 800,
+        height: height ?? 600,
+        resizable,
+      })
     }
   }
 
@@ -84,6 +99,24 @@ app.whenReady().then(() => {
     }
     handleOpen(url)
   })
+
+  // for dev debug
+
+  if (process.env.NODE_ENV === "development") {
+    import("electron-devtools-installer").then(
+      ({ default: installExtension, REACT_DEVELOPER_TOOLS }) => {
+        installExtension(REACT_DEVELOPER_TOOLS, {
+          loadExtensionOptions: { allowFileAccess: true },
+        })
+          .then((name) => console.info(`Added Extension:  ${name}`))
+          .catch((err) => console.info("An error occurred:", err))
+
+        session.defaultSession.getAllExtensions().forEach((e) => {
+          session.defaultSession.loadExtension(e.path)
+        })
+      },
+    )
+  }
 })
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -97,39 +130,4 @@ app.on("window-all-closed", () => {
 
 // In this file you can include the rest of your app"s specific main process
 // code. You can also put them in separate files and require them here.
-
-Menu.setApplicationMenu(
-  Menu.buildFromTemplate([
-    {
-      role: "appMenu",
-      submenu: [
-        { role: "about" },
-        { type: "separator" },
-        {
-          label: "Settings...",
-          accelerator: "CmdOrCtrl+,",
-          click: () => {
-            console.log("Oh, hi there!")
-            createWindow({
-              extraPath: "/settings",
-              width: 800,
-              height: 600,
-            })
-          },
-        },
-        { type: "separator" },
-        { role: "services" },
-        { type: "separator" },
-        { role: "hide" },
-        { role: "hideOthers" },
-        { type: "separator" },
-        { role: "quit" },
-      ],
-    },
-    { role: "fileMenu" },
-    { role: "editMenu" },
-    { role: "viewMenu" },
-    { role: "windowMenu" },
-    { role: "help" },
-  ]),
-)
+registerAppMenu()

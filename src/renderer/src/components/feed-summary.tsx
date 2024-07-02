@@ -1,17 +1,20 @@
 import { FeedIcon } from "@renderer/components/feed-icon"
-import type { FeedResponse } from "@renderer/lib/types"
+import { cn } from "@renderer/lib/utils"
+import type { FeedModel } from "@renderer/models"
 
 export function FollowSummary({
   feed,
   docs,
+  className,
 }: {
-  feed: FeedResponse
+  feed: FeedModel
   docs?: string
+  className?: string
 }) {
   return (
-    <div className="max-w-[462px] select-text space-y-1 text-sm">
+    <div className={cn("flex select-text flex-col gap-2 text-sm", className)}>
       <a
-        href={feed.siteUrl}
+        href={feed.siteUrl || void 0}
         target="_blank"
         className="flex items-center"
         rel="noreferrer"
@@ -19,7 +22,8 @@ export function FollowSummary({
         <FeedIcon
           feed={feed}
           fallbackUrl={docs}
-          className="mr-2 size-8 shrink-0"
+          className="mask-squircle mask mr-2 shrink-0 rounded-none"
+          size={32}
         />
         <div className="truncate text-base font-semibold leading-tight">
           {feed.title}
@@ -29,8 +33,10 @@ export function FollowSummary({
         </div>
       </a>
       <div className="flex items-center gap-1 truncate text-zinc-500">
-        <i className="i-mingcute-right-line shrink-0" />
-        {feed.url || docs}
+        <i className="i-mgc-right-cute-re shrink-0" />
+        <a href={feed.url || docs} target="_blank" rel="noreferrer">
+          {feed.url || docs}
+        </a>
       </div>
     </div>
   )

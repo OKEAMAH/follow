@@ -1,31 +1,18 @@
-import { client } from "./client"
+import { tipcClient } from "./client"
 
+export type NativeMenuItem =
+  | {
+    type: "text"
+    label: string
+    click?: () => void
+    enabled?: boolean
+  }
+  | { type: "separator" }
 export const showNativeMenu = async (
-  _items: Array<
-    { type: "text", label: string, click: () => void } | { type: "separator" }
-  >,
+  items: Array<Nullable<NativeMenuItem | false>>,
   e?: MouseEvent | React.MouseEvent,
 ) => {
-  const items = [
-    ..._items,
-    ...(import.meta.env.DEV && e ?
-        [
-          {
-            type: "separator" as const,
-          },
-          {
-            type: "text" as const,
-            label: "Inspect Element",
-            click: () => {
-              client?.inspectElement({
-                x: e.pageX,
-                y: e.pageY,
-              })
-            },
-          },
-        ] :
-        []),
-  ]
+  const nextItems = items.filter(Boolean) as NativeMenuItem[]
 
   const el = e && e.currentTarget
 
@@ -33,10 +20,41 @@ export const showNativeMenu = async (
     el.dataset.contextMenuOpen = "true"
   }
 
+  if (!window.electron) {
+    document.dispatchEvent(
+      new CustomEvent(CONTEXT_MENU_SHOW_EVENT_KEY, {
+        detail: {
+          items: nextItems,
+          x: e?.clientX,
+          y: e?.clientY,
+        },
+      }),
+    )
+    return
+  } else {
+    if (import.meta.env.DEV && e) {
+      nextItems.push(
+        {
+          type: "separator" as const,
+        },
+        {
+          type: "text" as const,
+          label: "Inspect Element",
+          click: () => {
+            tipcClient?.inspectElement({
+              x: e.pageX,
+              y: e.pageY,
+            })
+          },
+        },
+      )
+    }
+  }
+
   const unlisten = window.electron?.ipcRenderer.on("menu-click", (_, index) => {
-    const item = items[index]
+    const item = nextItems[index]
     if (item && item.type === "text") {
-      item.click()
+      item.click?.()
     }
   })
 
@@ -47,11 +65,12 @@ export const showNativeMenu = async (
     }
   })
 
-  await client?.showContextMenu({
-    items: items.map((item) => {
+  await tipcClient?.showContextMenu({
+    items: nextItems.map((item) => {
       if (item.type === "text") {
         return {
           ...item,
+          enabled: item.enabled ?? item.click !== undefined,
           click: undefined,
         }
       }
@@ -60,3 +79,5 @@ export const showNativeMenu = async (
     }),
   })
 }
+
+export const CONTEXT_MENU_SHOW_EVENT_KEY = "contextmenu-show"

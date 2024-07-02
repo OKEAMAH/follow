@@ -1,56 +1,44 @@
-import { cn } from "@renderer/lib/utils"
+import { Logo } from "@renderer/components/icons/logo"
+import { Vibrancy } from "@renderer/components/ui/background"
+import { APP_NAME } from "@renderer/lib/constants"
+import { preventDefault } from "@renderer/lib/dom"
+import { settings } from "@renderer/modules/settings/constants"
+import {
+  SettingsSidebarTitle,
+} from "@renderer/modules/settings/title"
 import { Link, Outlet, useLocation } from "react-router-dom"
 
-const tabs = [
-  {
-    name: "General",
-    path: "",
-    className: "i-mingcute-settings-7-line",
-  },
-  {
-    name: "RSSHub",
-    path: "rsshub",
-    className: "i-mingcute-palette-line",
-  },
-  {
-    name: "Profile",
-    path: "profile",
-    className: "i-mingcute-user-setting-line",
-  },
-]
-
+// TODO Web UI
 export function Component() {
   const location = useLocation()
   const tab = location.pathname.replace(/^\/settings\/?/, "")
 
   return (
-    <div className="flex h-screen flex-col">
-      {/* <div
-        className="h-10 border-b flex items-center pl-20 text-sm font-medium"
-        aria-hidden
-      >
-        Follow Settings
-      </div> */}
+    <div className="flex h-screen flex-col" onContextMenu={preventDefault}>
       <div className="flex flex-1">
-        <div className="w-44 border-r bg-native p-3 pt-10">
-          <div className="mx-2 mb-5 flex items-center gap-1 text-xl font-bold">
-            <img src="./icon.svg" alt="logo" className="size-6" />
-            Settings
+        <Vibrancy className="flex h-full w-44 flex-col border-r px-2.5 py-3 pt-3.5">
+          <div className="grow pt-8">
+            {settings.map((t) => (
+              <Link
+                key={t.path}
+                className={`my-1 flex items-center rounded-md px-2.5 py-0.5 leading-loose text-theme-foreground/70 transition-colors dark:text-theme-foreground/90 ${
+                  tab === t.path ?
+                    "bg-native-active text-theme-foreground/90" :
+                    ""
+                }`}
+                to={`/settings/${t.path}`}
+              >
+                <SettingsSidebarTitle path={t.path} />
+              </Link>
+            ))}
           </div>
-          {tabs.map((t) => (
-            <Link
-              key={t.path}
-              className={`my-1 flex items-center rounded-md px-2.5 py-[3px] text-[15px] font-medium leading-loose text-zinc-600 transition-colors ${
-                tab === t.path ? "bg-native-active text-zinc-900" : ""
-              }`}
-              to={`/settings/${t.path}`}
-            >
-              <i className={cn("mr-2", t.className)} />
-              <span>{t.name}</span>
-            </Link>
-          ))}
-        </div>
-        <div className="p-8">
+
+          <div className="center my-3 flex">
+            <Logo className="size-6" />
+            <span className="ml-2 font-semibold">{APP_NAME}</span>
+          </div>
+        </Vibrancy>
+        <div className="h-screen flex-1 overflow-y-auto bg-theme-background p-8 pt-0">
           <Outlet />
         </div>
       </div>

@@ -1,23 +1,44 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { ShikiHighLighter } from "@renderer/components/ui/code-highlighter"
+import { Image } from "@renderer/components/ui/image"
 import { toJsxRuntime } from "hast-util-to-jsx-runtime"
+import { createElement } from "react"
 import { Fragment, jsx, jsxs } from "react/jsx-runtime"
+import { renderToString } from "react-dom/server"
 import rehypeInferDescriptionMeta from "rehype-infer-description-meta"
 import rehypeParse from "rehype-parse"
-import rehypeSanitize from "rehype-sanitize"
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize"
 import rehypeStringify from "rehype-stringify"
 import { unified } from "unified"
 import { visit } from "unist-util-visit"
 import { VFile } from "vfile"
 
-export const parseHtml = async (content: string) => {
+export const parseHtml = async (
+  content: string,
+  options?: {
+    renderInlineStyle: boolean
+  },
+) => {
   const file = new VFile(content)
+  const { renderInlineStyle = false } = options || {}
 
   const pipeline = await unified()
-    .use(rehypeParse)
-    .use(rehypeSanitize)
+    .use(rehypeParse, { fragment: true })
+    .use(rehypeSanitize, {
+      ...defaultSchema,
+      attributes: {
+        ...defaultSchema.attributes,
+
+        "*": renderInlineStyle ?
+            [...defaultSchema.attributes!["*"], "style"] :
+          defaultSchema.attributes!["*"],
+      },
+    })
     .use(rehypeInferDescriptionMeta)
     .use(rehypeStringify)
 
   const tree = pipeline.parse(content)
+
   const hastTree = pipeline.runSync(tree, file)
 
   const metadata: {
@@ -44,9 +65,50 @@ export const parseHtml = async (content: string) => {
     content: toJsxRuntime(hastTree, {
       Fragment,
       ignoreInvalidStyle: true,
-      jsx,
-      jsxs,
+      jsx: (type, props, key) => jsx(type as any, props, key),
+      jsxs: (type, props, key) => jsxs(type as any, props, key),
       passNode: true,
+      components: {
+        img: ({ node, ...props }) => createElement(Image, { ...props, popper: true }),
+        pre: ({ node, ...props }) => {
+          if (!props.children) return null
+
+          let language = "plaintext"
+          let codeString = null as string | null
+          if (props.className?.includes("language-")) {
+            language = props.className.replace("language-", "")
+          }
+
+          if (typeof props.children !== "object") {
+            language = "plaintext"
+            codeString = props.children.toString()
+          } else {
+            if (
+              "type" in props.children &&
+              props.children.type === "code" &&
+              props.children.props.className?.includes("language-")
+            ) {
+              language = props.children.props.className.replace(
+                "language-",
+                "",
+              )
+            }
+            const code =
+              "props" in props.children && props.children.props.children
+            if (!code) return null
+            const $text = document.createElement("div")
+            $text.innerHTML = renderToString(code)
+            codeString = $text.textContent
+          }
+
+          if (!codeString) return null
+          // return createElement("pre", { ...props, className: "shiki" })
+          return createElement(ShikiHighLighter, {
+            code: codeString,
+            language: language.toLowerCase(),
+          })
+        },
+      },
     }),
   }
 }

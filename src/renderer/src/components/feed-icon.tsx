@@ -1,32 +1,59 @@
 import { SiteIcon } from "@renderer/components/site-icon"
 import { Image } from "@renderer/components/ui/image"
-import type { FeedResponse } from "@renderer/lib/types"
 import { cn } from "@renderer/lib/utils"
+import type { CombinedEntryModel, FeedModel } from "@renderer/models"
 
 export function FeedIcon({
   feed,
+  entry,
   fallbackUrl,
   className,
+  size = 20,
 }: {
-  feed: FeedResponse
+  feed: FeedModel
+  entry?: CombinedEntryModel["entries"]
   fallbackUrl?: string
   className?: string
+  size?: number
 }) {
-  if (feed.image) {
+  const image = entry?.authorAvatar || feed.image
+  if (image) {
     return (
       <Image
-        src={feed.image}
-        className={cn("mr-2 size-5 shrink-0 rounded-sm", className)}
+        src={image}
+        className={cn("mr-2 shrink-0 rounded-sm", className)}
+        style={{
+          width: size,
+          height: size,
+        }}
         proxy={{
-          width: 40,
-          height: 40,
+          width: size * 2,
+          height: size * 2,
         }}
       />
     )
   } else if (feed.siteUrl) {
-    return <SiteIcon url={feed.siteUrl} className={className} />
+    return (
+      <SiteIcon
+        url={feed.siteUrl}
+        className={className}
+        style={{
+          width: size,
+          height: size,
+        }}
+      />
+    )
   } else if (fallbackUrl) {
-    return <SiteIcon url={fallbackUrl} className={className} />
+    return (
+      <SiteIcon
+        url={fallbackUrl}
+        className={className}
+        style={{
+          width: size,
+          height: size,
+        }}
+      />
+    )
   } else {
     return null
   }

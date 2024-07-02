@@ -1,104 +1,17 @@
-import "./assets/main.css"
+import "./styles/main.css"
 
-import { authConfigManager, SessionProvider } from "@hono/auth-js/react"
-import { Toaster } from "@renderer/components/ui/toaster"
-import { queryClient } from "@renderer/lib/query-client"
-import { QueryClientProvider } from "@tanstack/react-query"
-import { LazyMotion, MotionConfig } from "framer-motion"
+import { authConfigManager } from "@hono/auth-js/react"
+import { ClickToComponent } from "click-to-react-component"
+import { enableMapSet } from "immer"
 import * as React from "react"
 import ReactDOM from "react-dom/client"
-import { createBrowserRouter, RouterProvider } from "react-router-dom"
+import { RouterProvider } from "react-router-dom"
 
-import App from "./App"
+import { router } from "./router"
+import { initializeDbAndStore } from "./store/utils/init"
 
-const router = createBrowserRouter([
-  {
-    path: "/",
-    element: <App />,
-    children: [
-      {
-        path: "",
-        lazy: () => import("./pages/(main)/layout"),
-        children: [
-          {
-            path: "",
-            lazy: () => import("./pages/(main)/(context)/layout"),
-            children: [
-              {
-                path: "",
-                lazy: () => import("./pages/(main)/(context)/index"),
-              },
-              {
-                path: "/follow",
-                lazy: () => import("./pages/(main)/(context)/follow/layout"),
-                children: [
-                  {
-                    path: "",
-                    lazy: () => import("./pages/(main)/(context)/follow/index"),
-                  },
-                ],
-              },
-              {
-                path: "/profile",
-                lazy: () => import("./pages/(main)/(context)/profile/layout"),
-                children: [
-                  {
-                    path: "",
-                    lazy: () =>
-                      import("./pages/(main)/(context)/profile/index"),
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-      {
-        path: "login",
-        lazy: () => import("./pages/login"),
-      },
-      {
-        path: "redirect",
-        lazy: () => import("./pages/redirect"),
-      },
-      {
-        path: "settings",
-        lazy: () => import("./pages/settings/layout"),
-        children: [
-          {
-            path: "",
-            lazy: () => import("./pages/settings/index"),
-          },
-          {
-            path: "rsshub",
-            lazy: () => import("./pages/settings/rsshub"),
-          },
-          {
-            path: "profile",
-            lazy: () => import("./pages/settings/profile"),
-          },
-        ],
-      },
-      {
-        path: "debug",
-        lazy: () => import("./pages/debug"),
-      },
-      {
-        path: "/feed/:id",
-        lazy: () => import("./pages/feed/layout"),
-        children: [
-          {
-            path: "",
-            lazy: () => import("./pages/feed/index"),
-          },
-        ],
-      },
-    ],
-  },
-])
-
-const loadFeatures = () =>
-  import("./framer-lazy-feature").then((res) => res.default)
+enableMapSet()
+initializeDbAndStore().finally(render)
 
 authConfigManager.setConfig({
   baseUrl: import.meta.env.VITE_API_URL,
@@ -106,23 +19,11 @@ authConfigManager.setConfig({
   credentials: "include",
 })
 
-ReactDOM.createRoot(document.querySelector("#root") as HTMLElement).render(
-  <React.StrictMode>
-    <LazyMotion features={loadFeatures} strict key="framer">
-      <MotionConfig
-        transition={{
-          type: "tween",
-          duration: 0.15,
-          ease: "easeInOut",
-        }}
-      >
-        <SessionProvider>
-          <QueryClientProvider client={queryClient}>
-            <RouterProvider router={router} />
-          </QueryClientProvider>
-        </SessionProvider>
-      </MotionConfig>
-    </LazyMotion>
-    <Toaster />
-  </React.StrictMode>,
-)
+function render() {
+  ReactDOM.createRoot(document.querySelector("#root") as HTMLElement).render(
+    <React.StrictMode>
+      <RouterProvider router={router} />
+      <ClickToComponent />
+    </React.StrictMode>,
+  )
+}

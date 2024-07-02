@@ -1,59 +1,81 @@
-import { levels } from "@renderer/lib/constants"
-import type { DataResponse, EntriesResponse, ListResponse } from "@renderer/lib/types"
-import { apiFetch } from "@renderer/queries/api-fetch"
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
+import { useBizInfiniteQuery, useBizQuery } from "@renderer/hooks"
+import { apiClient } from "@renderer/lib/api-fetch"
+import { defineQuery } from "@renderer/lib/defineQuery"
+import { entryActions } from "@renderer/store"
+
+export const entries = {
+  entries: ({
+    level,
+    id,
+    view,
+    read,
+  }: {
+    level?: string
+    id?: number | string
+    view?: number
+    read?: boolean
+  }) =>
+    defineQuery(
+      ["entries", id, level, view, read],
+      async ({ pageParam }) =>
+        entryActions.fetchEntries({
+          level,
+          id,
+          view,
+          read,
+
+          pageParam: pageParam as string,
+        }),
+      {
+        rootKey: ["entries", id],
+      },
+    ),
+  byId: (id: string) =>
+    defineQuery(["entry", id], async () => entryActions.fetchEntryById(id), {
+      rootKey: ["entries"],
+    }),
+  preview: (id: string) =>
+    defineQuery(
+      ["entries-preview", id],
+      async () => {
+        const res = await apiClient.entries.preview.$get({
+          query: {
+            id,
+          },
+        })
+
+        return res.data
+      },
+      {
+        rootKey: ["entries-preview"],
+      },
+    ),
+}
 
 export const useEntries = ({
   level,
   id,
   view,
+  read,
 }: {
   level?: string
   id?: number | string
   view?: number
+  read?: boolean
 }) =>
-  useInfiniteQuery({
-    queryKey: ["entries", level, id],
+  useBizInfiniteQuery(entries.entries({ level, id, view, read }), {
     enabled: level !== undefined && id !== undefined,
-    queryFn: async ({ pageParam }) => {
-      const params: {
-        category?: string
-        view?: number
-        feedId?: string
-        feedIdList?: string[]
-      } = {}
-      if (level === levels.folder) {
-        params.feedIdList = (`${id}`).split(",")
-      } else if (level === levels.feed) {
-        params.feedId = `${id}`
+    getNextPageParam: (lastPage) => {
+      if (!lastPage.data?.length) {
+        return null
       }
-      return await apiFetch<ListResponse<EntriesResponse>>("/entries", {
-        method: "POST",
-        body: {
-          offset: pageParam,
-          view,
-          ...params,
-        },
-      })
+      return lastPage.data.at(-1)!.entries.publishedAt
     },
-    getNextPageParam: (lastPage, _, lastPageParam) =>
-      lastPageParam + (lastPage.data?.length || 0),
-    initialPageParam: 0,
+    initialPageParam: undefined,
+    refetchInterval: 1000 * 60 * 10,
   })
 
-export const useEntry = ({ id }: { id?: string | null }) =>
-  useQuery({
-    queryKey: ["entry", id],
+export const useEntriesPreview = ({ id }: { id?: string }) =>
+  useBizQuery(entries.preview(id!), {
     enabled: !!id,
-    queryFn: async () => {
-      const data = await apiFetch<DataResponse<EntriesResponse[number]>>(
-        "/entries",
-        {
-          query: {
-            id,
-          },
-        },
-      )
-      return data.data
-    },
   })
